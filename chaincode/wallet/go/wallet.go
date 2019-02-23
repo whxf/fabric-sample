@@ -1,3 +1,6 @@
+//为state database 添加索引的方法，注意只有数据库中有数据之后才能运行下面的命令
+//curl -i -X POST -H "Content-Type: application/json" -d "{\"index\":{\"fields\":[{\"transfer_time\":\"desc\"}]},\"ddoc\":\"indexTimeSortDoc\", \"name\":\"indexTimeSortDesc\",\"type\":\"json\"}" http://127.0.0.1:5984/mychannel_wallet/_index
+
 package main
 
 import (
@@ -109,7 +112,7 @@ func (s *SmartContract) queryRecord(stub shim.ChaincodeStubInterface, args []str
 	var err error
 
 	phone := args[0]
-	sqlString := fmt.Sprintf("{\"selector\": {\"$or\": [{\"sender\": \"%s\"},{\"receiver\": \"%s\"}]}, \"limit\" : 100 }", phone, phone)
+	sqlString := fmt.Sprintf("{\"selector\": {\"$or\": [{\"sender\": \"%s\"},{\"receiver\": \"%s\"}]}, \"sort\": [{\"transfer_time\":\"desc\"}],\"limit\" : 100 }", phone, phone)
 	resultsIterator, err := stub.GetQueryResult(sqlString)
 
 	if err != nil {

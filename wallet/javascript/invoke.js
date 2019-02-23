@@ -1,7 +1,3 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
-
 'use strict';
 
 const { FileSystemWallet, Gateway } = require('fabric-network');
@@ -41,6 +37,8 @@ async function main() {
         // Submit the specified transaction.
         await contract.submitTransaction('createRecord', 'test2', 'test1', '100.2','1');
         await contract.submitTransaction('createRecord', 'test1', 'test3', '23.2','3');
+        await contract.submitTransaction('createRecord', 'test2', 'test1', '122.2','2');
+        await contract.submitTransaction('createRecord', 'test1', 'test3', '23.22','3');
 
         console.log('Transaction has been submitted');
 
