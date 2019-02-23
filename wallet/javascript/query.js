@@ -36,7 +36,7 @@ async function main() {
 
         // Evaluate the specified transaction.
         const result = await contract.evaluateTransaction('queryRecord','RECORD1');
-        console.log(`Transaction has been evaluated, result is: ${result.toString()}`);
+        console.log(`Transaction has been evaluated, result is: ${result.toJSON()}`);
 
     } catch (error) {
         console.error(`Failed to evaluate transaction: ${error}`);

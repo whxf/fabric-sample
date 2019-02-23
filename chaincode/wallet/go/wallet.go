@@ -15,19 +15,88 @@ type SmartContract struct {
 
 // Define the Record structure.  Structure tags are used by encoding/json library
 type Record struct {
-	ObjectType     string  `json:"docType"` //docType is used to distinguish the various types of objects in state database
-	Sender         string  `json:"sender"`
-	Receiver       string  `json:"receiver"`
-	TransferAmount float64 `json:"transfer_amount"`
-	TransferTime   string  `json:"transfer_time"`
-	TransferType   int     `json:"transfer_type"`
+	ObjectType     string `json:"docType"` //docType is used to distinguish the various types of objects in state database
+	Sender         string `json:"sender"`
+	Receiver       string `json:"receiver"`
+	TransferAmount string `json:"transfer_amount"`
+	TransferTime   string `json:"transfer_time"`
+	TransferType   string `json:"transfer_type"`
 }
 
 /*
  * The Init method is called when the Smart Contract "wallet" is instantiated by the blockchain network
  */
 func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
+	return shim.Success(nil)
+}
 
+/*
+ * The Invoke method is called as a result of an application request to run the Smart Contract "wallet"
+ * The calling application program has also specified the particular smart contract function to be called, with arguments
+ */
+func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
+
+	// Retrieve the requested Smart Contract function and arguments
+	function, args := APIstub.GetFunctionAndParameters()
+	// Route to the appropriate handler function to interact with the ledger appropriately
+	if function == "queryRecord" {
+		return s.queryRecord(APIstub, args)
+	} else if function == "initLedger" {
+		return s.initLedger(APIstub)
+	} else if function == "createRecord" {
+		return s.createRecord(APIstub, args)
+	}
+
+	return shim.Error("Invalid Smart Contract function name.")
+}
+
+func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+	var err error
+
+	phone := args[0]
+	limit := args[0]
+	skip := args[0]
+
+	queryStringSender := fmt.Sprintf("{"+
+		" \"selector\" : { \"$or\" :["+
+		"{ \"sender\" : \"%s\" }, "+
+		"{ \"receiver\" : \"%s\" }"+
+		"]}, "+
+		" \"limit\" : \"%s\" , "+
+		" \"skip\" : \"%s\" ,"+
+		" \"sort\" : { \"transfer_time\" : \"desc\" }"+
+		"}", phone, phone, limit, skip)
+
+	resultsIterator, err := stub.GetQueryResult(queryStringSender) //必须是CouchDB才行
+	if err != nil {
+		return shim.Error("query failed")
+	}
+
+	defer resultsIterator.Close()
+
+	var recordJsonList = []Record{}
+
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Record is a JSON object, so we write as-is
+		result := Record{}
+		err = json.Unmarshal(queryResponse.Value, &result)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		recordJsonList = append(recordJsonList, result)
+	}
+
+	recordJSONasBytes, err := json.Marshal(recordJsonList)
+
+	return shim.Success(recordJSONasBytes)
+}
+
+func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
 	var err error
 
 	fmt.Println("- start init record")
@@ -35,9 +104,9 @@ func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 	// ======== init record attribute ========
 	record_sender := "test user 1"
 	record_receiver := "test user 2"
-	record_transfer_amount := 100.0
+	record_transfer_amount := "123.0"
 	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
-	record_transfer_type := 1
+	record_transfer_type := "1"
 	// string to time format : t, _ := time.Parse("2006-01-02 15:04:05", "2014-06-15 08:37:18")
 
 	// ======== create record object and json byte ========
@@ -67,53 +136,44 @@ func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 	stub.PutState(indexKey, recordJSONasBytes)
 
 	fmt.Println("- end init record")
-	return shim.Success(nil)
-}
 
-/*
- * The Invoke method is called as a result of an application request to run the Smart Contract "fabcar"
- * The calling application program has also specified the particular smart contract function to be called, with arguments
- */
-func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
-
-	// Retrieve the requested Smart Contract function and arguments
-	function, args := APIstub.GetFunctionAndParameters()
-	// Route to the appropriate handler function to interact with the ledger appropriately
-	if function == "queryRecord" {
-		return s.queryRecord(APIstub, args)
-	} else if function == "initLedger" {
-		return s.initLedger(APIstub)
-	} else if function == "createRecord" {
-		return s.createRecord(APIstub, args)
-	}
-
-	return shim.Error("Invalid Smart Contract function name.")
-}
-
-func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
-	}
-
-	recordAsBytes, _ := APIstub.GetState(args[0])
-	return shim.Success(recordAsBytes)
-}
-
-func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
 	return shim.Success(nil)
 }
 
 func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
 
-	if len(args) != 5 {
-		return shim.Error("Incorrect number of arguments. Expecting 5")
+	if len(args) != 4 {
+		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
 
-	var record = Record{FromPos: args[1], ToPos: args[2], Amount: args[3], TransferTime: args[4]}
+	record_sender := args[0]
+	record_receiver := args[1]
+	record_transfer_amount := args[2]
+	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
+	record_transfer_type := args[3]
 
-	recordAsBytes, _ := json.Marshal(record)
-	APIstub.PutState(args[0], recordAsBytes)
+	object_type := "record"
+	record := Record{object_type,
+		record_sender,
+		record_receiver,
+		record_transfer_amount,
+		record_transfer_time,
+		record_transfer_type}
+
+	recordJSONasBytes, err := json.Marshal(record)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	indexName := "sender~receiver~transfer_time"
+	indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	stub.PutState(indexKey, recordJSONasBytes)
 
 	return shim.Success(nil)
 }
@@ -126,4 +186,5 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error creating new Smart Contract: %s", err)
 	}
+
 }
