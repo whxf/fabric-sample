@@ -50,30 +50,70 @@ func (s *SmartContract) Invoke(stub shim.ChaincodeStubInterface) sc.Response {
 	return shim.Error("Invalid Smart Contract function name.")
 }
 
+//func (s *SmartContract) queryRecord(stub shim.ChaincodeStubInterface, args []string) sc.Response {
+//	if len(args) != 1 {
+//		return shim.Error("Incorrect number of arguments. Expecting 1")
+//	}
+//
+//	var err error
+//
+//	phone := args[0]
+//
+//	indexName := "sender~receiver~time~amount~type"
+//	resultsIterator, err := stub.GetStateByPartialCompositeKey(indexName, []string{phone})
+//
+//	if err != nil {
+//		return shim.Error(err.Error())
+//	}
+//
+//	defer resultsIterator.Close()
+//
+//	var recordJsonList = []Record{}
+//	object_type := "record"
+//
+//	for resultsIterator.HasNext() {
+//		queryResponse, _ := resultsIterator.Next()
+//		_, compositeKeyParts, err := stub.SplitCompositeKey(queryResponse.Key)
+//
+//		if err != nil {
+//			return shim.Error(err.Error())
+//		}
+//
+//		// Record is a JSON object, so we write as-is
+//
+//		result := Record{object_type,
+//			compositeKeyParts[0],
+//			compositeKeyParts[1],
+//			compositeKeyParts[2],
+//			compositeKeyParts[3],
+//			compositeKeyParts[4]}
+//
+//		err = json.Unmarshal(queryResponse.Value, &result)
+//		if err != nil {
+//			return shim.Error(err.Error())
+//		}
+//
+//		recordJsonList = append(recordJsonList, result)
+//	}
+//
+//	recordJSONasBytes, err := json.Marshal(recordJsonList)
+//
+//	return shim.Success(recordJSONasBytes)
+//}
+
 func (s *SmartContract) queryRecord(stub shim.ChaincodeStubInterface, args []string) sc.Response {
-	if len(args) != 3 {
-		return shim.Error("Incorrect number of arguments. Expecting 3")
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
 	}
 
 	var err error
 
 	phone := args[0]
-	limit := args[1]
-	skip := args[2]
+	sqlString := fmt.Sprintf("{\"selector\": {\"$or\": [{\"sender\": \"%s\"},{\"receiver\": \"%s\"}]}, \"limit\" : 100 }", phone, phone)
+	resultsIterator, err := stub.GetQueryResult(sqlString)
 
-	queryStringSender := fmt.Sprintf("{"+
-		" \"selector\" : { \"$or\" :["+
-		"{ \"sender\" : \"%s\" }, "+
-		"{ \"receiver\" : \"%s\" }"+
-		"]}, "+
-		" \"limit\" : \"%s\" , "+
-		" \"skip\" : \"%s\" ,"+
-		" \"sort\" : { \"transfer_time\" : \"desc\" }"+
-		"}", phone, phone, limit, skip)
-
-	resultsIterator, err := stub.GetQueryResult(queryStringSender) //必须是CouchDB才行
 	if err != nil {
-		return shim.Error(err)
+		return shim.Error(err.Error())
 	}
 
 	defer resultsIterator.Close()
@@ -81,11 +121,14 @@ func (s *SmartContract) queryRecord(stub shim.ChaincodeStubInterface, args []str
 	var recordJsonList = []Record{}
 
 	for resultsIterator.HasNext() {
-		queryResponse, err := resultsIterator.Next()
+		queryResponse, _ := resultsIterator.Next()
+
 		if err != nil {
 			return shim.Error(err.Error())
 		}
+
 		// Record is a JSON object, so we write as-is
+
 		result := Record{}
 		err = json.Unmarshal(queryResponse.Value, &result)
 		if err != nil {
@@ -130,8 +173,9 @@ func (s *SmartContract) initLedger(stub shim.ChaincodeStubInterface) sc.Response
 
 		// ======== create composite key to record ========
 		// ======== save record to state ==================
-		indexName := "sender~receiver~transfer_time"
-		indexKey, err := stub.CreateCompositeKey(indexName, []string{records[i].Sender, records[i].Receiver, records[i].TransferTime})
+		indexName := "sender~receiver~time~amount~type"
+		indexKey, err := stub.CreateCompositeKey(indexName, []string{records[i].Sender, records[i].Receiver,
+			records[i].TransferTime, records[i].TransferAmount, records[i].TransferType})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -171,8 +215,8 @@ func (s *SmartContract) createRecord(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error(err.Error())
 	}
 
-	indexName := "sender~receiver~transfer_time"
-	indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+	indexName := "sender~receiver~time~amount~type"
+	indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime, record.TransferAmount, record.TransferType})
 
 	if err != nil {
 		return shim.Error(err.Error())

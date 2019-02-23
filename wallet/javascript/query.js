@@ -35,8 +35,8 @@ async function main() {
         const contract = network.getContract('wallet');
 
         // Evaluate the specified transaction.
-        const result = await contract.evaluateTransaction('queryRecord','test1', '100', '0');
-        console.log(`Transaction has been evaluated, result is: ${result.toJSON()}`);
+        const result = await contract.evaluateTransaction('queryRecord','test1');
+        console.log(`Transaction has been evaluated, result is: ${result}`);
 
     } catch (error) {
         console.error(`Failed to evaluate transaction: ${error}`);
