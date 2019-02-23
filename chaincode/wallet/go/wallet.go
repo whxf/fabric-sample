@@ -54,8 +54,8 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 	var err error
 
 	phone := args[0]
-	limit := args[0]
-	skip := args[0]
+	limit := args[1]
+	skip := args[2]
 
 	queryStringSender := fmt.Sprintf("{"+
 		" \"selector\" : { \"$or\" :["+
@@ -97,46 +97,46 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 }
 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
-	var err error
-
 	fmt.Println("- start init record")
 
 	// ======== init record attribute ========
-	record_sender := "test user 1"
-	record_receiver := "test user 2"
-	record_transfer_amount := "123.0"
-	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
-	record_transfer_type := "1"
-	// string to time format : t, _ := time.Parse("2006-01-02 15:04:05", "2014-06-15 08:37:18")
-
 	// ======== create record object and json byte ========
 	object_type := "record"
-	record := Record{object_type,
-		record_sender,
-		record_receiver,
-		record_transfer_amount,
-		record_transfer_time,
-		record_transfer_type}
-
-	recordJSONasBytes, err := json.Marshal(record)
-
-	if err != nil {
-		return shim.Error(err.Error())
+	records := []Record{
+		Record{object_type,
+			"test1",
+			"test2",
+			"100.0",
+			"2006-01-02 15:04:05",
+			"1"},
+		Record{object_type,
+			"test3",
+			"test1",
+			"100.0",
+			"2006-01-03 00:04:05",
+			"2"},
 	}
 
-	// ======== create composite key to record ========
-	// ======== save record to state ==================
-	indexName := "sender~receiver~transfer_time"
-	indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+	i := 0
+	for i < len(records) {
+		recordJSONasBytes, err := json.Marshal(records[i])
+		if err != nil {
+			return shim.Error(err.Error())
+		}
 
-	if err != nil {
-		return shim.Error(err.Error())
+		// ======== create composite key to record ========
+		// ======== save record to state ==================
+		indexName := "sender~receiver~transfer_time"
+		indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		stub.PutState(indexKey, recordJSONasBytes)
+		i = i + 1
 	}
-
-	stub.PutState(indexKey, recordJSONasBytes)
 
 	fmt.Println("- end init record")
-
 	return shim.Success(nil)
 }
 
@@ -151,6 +151,7 @@ func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args [
 	record_transfer_amount := args[2]
 	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
 	record_transfer_type := args[3]
+	// string to time format : t, _ := time.Parse("2006-01-02 15:04:05", "2014-06-15 08:37:18")
 
 	object_type := "record"
 	record := Record{object_type,
