@@ -1,37 +1,9 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
-/*
- * The sample smart contract for documentation topic:
- * Writing Your First Blockchain Application
- */
-
 package main
 
-/* Imports
- * 4 utility libraries for formatting, handling bytes, reading and writing JSON, and string manipulation
- * 2 specific Hyperledger Fabric specific libraries for Smart Contracts
- */
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	sc "github.com/hyperledger/fabric/protos/peer"
@@ -41,20 +13,60 @@ import (
 type SmartContract struct {
 }
 
-// Define the car structure, with 4 properties.  Structure tags are used by encoding/json library
+// Define the Record structure.  Structure tags are used by encoding/json library
 type Record struct {
-	FromPos   string `json:"from_pos"`
-	ToPos  string `json:"to_pos"`
-	Amount string `json:"amount"`
-	TransferTime  string `json:"transfer_time"`
+	ObjectType     string  `json:"docType"` //docType is used to distinguish the various types of objects in state database
+	Sender         string  `json:"sender"`
+	Receiver       string  `json:"receiver"`
+	TransferAmount float64 `json:"transfer_amount"`
+	TransferTime   string  `json:"transfer_time"`
+	TransferType   int     `json:"transfer_type"`
 }
 
-
 /*
- * The Init method is called when the Smart Contract "fabcar" is instantiated by the blockchain network
- * Best practice is to have any Ledger initialization in separate function -- see initLedger()
+ * The Init method is called when the Smart Contract "wallet" is instantiated by the blockchain network
  */
 func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
+
+	var err error
+
+	fmt.Println("- start init record")
+
+	// ======== init record attribute ========
+	record_sender := "test user 1"
+	record_receiver := "test user 2"
+	record_transfer_amount := 100.0
+	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
+	record_transfer_type := 1
+	// string to time format : t, _ := time.Parse("2006-01-02 15:04:05", "2014-06-15 08:37:18")
+
+	// ======== create record object and json byte ========
+	object_type := "record"
+	record := Record{object_type,
+		record_sender,
+		record_receiver,
+		record_transfer_amount,
+		record_transfer_time,
+		record_transfer_type}
+
+	recordJSONasBytes, err := json.Marshal(record)
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	// ======== create composite key to record ========
+	// ======== save record to state ==================
+	indexName := "sender~receiver~transfer_time"
+	indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	stub.PutState(indexKey, recordJSONasBytes)
+
+	fmt.Println("- end init record")
 	return shim.Success(nil)
 }
 
@@ -89,21 +101,6 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 }
 
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
-	records := []Record{
-		Record{FromPos: "李四", ToPos: "张三", Amount: "100", TransferTime: "20191031"},
-		Record{FromPos: "李四", ToPos: "赵五", Amount: "10", TransferTime: "20191031"},
-		Record{FromPos: "张三", ToPos: "李四", Amount: "100", TransferTime: "20191031"},
-		}
-
-	i := 0
-	for i < len(records) {
-		fmt.Println("i is ", i)
-		recordAsBytes, _ := json.Marshal(records[i])
-		APIstub.PutState("RECORD"+strconv.Itoa(i), recordAsBytes)
-		fmt.Println("Added", records[i])
-		i = i + 1
-	}
-
 	return shim.Success(nil)
 }
 
