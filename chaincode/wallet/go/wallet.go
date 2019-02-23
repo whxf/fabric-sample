@@ -26,7 +26,7 @@ type Record struct {
 /*
  * The Init method is called when the Smart Contract "wallet" is instantiated by the blockchain network
  */
-func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
+func (s *SmartContract) Init(stub shim.ChaincodeStubInterface) sc.Response {
 	return shim.Success(nil)
 }
 
@@ -34,23 +34,27 @@ func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
  * The Invoke method is called as a result of an application request to run the Smart Contract "wallet"
  * The calling application program has also specified the particular smart contract function to be called, with arguments
  */
-func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response {
+func (s *SmartContract) Invoke(stub shim.ChaincodeStubInterface) sc.Response {
 
 	// Retrieve the requested Smart Contract function and arguments
-	function, args := APIstub.GetFunctionAndParameters()
+	function, args := stub.GetFunctionAndParameters()
 	// Route to the appropriate handler function to interact with the ledger appropriately
 	if function == "queryRecord" {
-		return s.queryRecord(APIstub, args)
+		return s.queryRecord(stub, args)
 	} else if function == "initLedger" {
-		return s.initLedger(APIstub)
+		return s.initLedger(stub)
 	} else if function == "createRecord" {
-		return s.createRecord(APIstub, args)
+		return s.createRecord(stub, args)
 	}
 
 	return shim.Error("Invalid Smart Contract function name.")
 }
 
-func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+func (s *SmartContract) queryRecord(stub shim.ChaincodeStubInterface, args []string) sc.Response {
+	if len(args) != 3 {
+		return shim.Error("Incorrect number of arguments. Expecting 3")
+	}
+
 	var err error
 
 	phone := args[0]
@@ -69,7 +73,7 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 
 	resultsIterator, err := stub.GetQueryResult(queryStringSender) //必须是CouchDB才行
 	if err != nil {
-		return shim.Error("query failed")
+		return shim.Error(err)
 	}
 
 	defer resultsIterator.Close()
@@ -96,7 +100,7 @@ func (s *SmartContract) queryRecord(APIstub shim.ChaincodeStubInterface, args []
 	return shim.Success(recordJSONasBytes)
 }
 
-func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
+func (s *SmartContract) initLedger(stub shim.ChaincodeStubInterface) sc.Response {
 	fmt.Println("- start init record")
 
 	// ======== init record attribute ========
@@ -127,7 +131,7 @@ func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Respo
 		// ======== create composite key to record ========
 		// ======== save record to state ==================
 		indexName := "sender~receiver~transfer_time"
-		indexKey, err := stub.CreateCompositeKey(indexName, []string{record.Sender, record.Receiver, record.TransferTime})
+		indexKey, err := stub.CreateCompositeKey(indexName, []string{records[i].Sender, records[i].Receiver, records[i].TransferTime})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -140,7 +144,7 @@ func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Respo
 	return shim.Success(nil)
 }
 
-func (s *SmartContract) createRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+func (s *SmartContract) createRecord(stub shim.ChaincodeStubInterface, args []string) sc.Response {
 
 	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")

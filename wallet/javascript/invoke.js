@@ -39,8 +39,7 @@ async function main() {
         const contract = network.getContract('wallet');
 
         // Submit the specified transaction.
-        await contract.submitTransaction('createRecord', 'RECORD1', '张三', '李四', '123','1548747871');
-        await contract.submitTransaction('createRecord', 'RECORD2', '李四', '张三', '12','1548747875');
+        await contract.submitTransaction('createRecord', 'test1', 'test3', '12.2','1');
         console.log('Transaction has been submitted');
 
         // Disconnect from the gateway.
