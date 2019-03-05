@@ -197,10 +197,11 @@ func (s *SmartContract) createRecord(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
 
+	var cstZone = time.FixedZone("CST", 8*3600)
 	record_sender := args[0]
 	record_receiver := args[1]
 	record_transfer_amount := args[2]
-	record_transfer_time := time.Now().Format("2006-01-02 15:04:05") // time to string format
+	record_transfer_time := time.Now().In(cstZone).Format("2006-01-02 15:04:05") // time to string format
 	record_transfer_type := args[3]
 	// string to time format : t, _ := time.Parse("2006-01-02 15:04:05", "2014-06-15 08:37:18")
 
